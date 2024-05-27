@@ -1,0 +1,21 @@
+FROM alpine AS builder
+RUN apk add --update-cache \
+apk add bash \ 
+apk add luajit \ 
+apk add luajit-dev \ 
+apk add sqlite \ 
+apk add cmake \ 
+apk add build-base \
+rm -rf /var/cache/apk/*
+WORKDIR /app
+COPY . /app
+ENV LUAJIT_LIBRARY=/usr/lib/libluajit-5.1.so \
+    LUAJIT_INCLUDE_DIR=/usr/include/luajit-2.1 \
+    LUAJIT_BIN=/usr/bin/luajit 
+RUN mkdir build && cd build && USE_SYS_LJ=1 cmake -DCMAKE_BUILD_TYPE=Release .. && cmake --build . && cmake --install . && ctest -R sqlite_plugin_tests -V
+
+
+FROM scratch AS binaries
+COPY --from=builder /app/build/libsqlite_plugin_lj.so /libsqlite_plugin_lj.so
+
+

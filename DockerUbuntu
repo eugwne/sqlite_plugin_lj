@@ -1,0 +1,17 @@
+FROM ubuntu AS builder
+RUN apt update \
+&& apt install sqlite3 -y \
+&& apt install cmake -y \
+&& apt install gcc -y \
+&& apt install luajit -y \
+&& apt install libluajit-5.1-dev -y 
+
+WORKDIR /app
+COPY . /app
+ENV LUAJIT_LIBRARY=/usr/lib/x86_64-linux-gnu/libluajit-5.1.so \
+    LUAJIT_INCLUDE_DIR=/usr/include/luajit-2.1 \
+    LUAJIT_BIN=/usr/bin/luajit 
+RUN mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && cmake --build . && cmake --install . && ctest -R sqlite_plugin_tests -V
+
+FROM scratch AS binaries
+COPY --from=builder /app/build/libsqlite_plugin_lj.so /libsqlite_plugin_lj.so

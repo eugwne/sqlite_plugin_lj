@@ -1,0 +1,18 @@
+
+
+16
+Create failed [echo11]
+[string "echo11"]:1: '=' expected near 'function'
+17
+
+echo [tyu]
+
+a qwe b asd c zxc
+
+tyutyu
+-------------
+
+7|7.0
+7|7.0
+
+18

@@ -1,0 +1,30 @@
+
+
+
+
+
+
+13
+1
+9999
+
+10000
+
+
+1 = 1LL
+2 = 11LL
+1 = 2LL
+2 = 22LL
+1 = 3LL
+2 = 33LL
+
+num1 = 1LL
+num2 = 11LL
+num1 = 2LL
+num2 = 22LL
+num1 = 3LL
+num2 = 33LL
+
+1LL	11LL
+2LL	22LL
+3LL	33LL
