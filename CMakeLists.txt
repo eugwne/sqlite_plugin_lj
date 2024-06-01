@@ -9,27 +9,9 @@ add_library(${PROJECT_NAME} SHARED src/plugin.c)
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 set(LUA_SCRIPT_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_lj.lua"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_capi.lua"
+    src/sqlite_lj.lua
+    src/sqlite_capi.lua
 )
-
-# install(FILES 
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_lj.lua
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_capi.lua
-#  DESTINATION /usr/share/lua/5.1/)
-
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sqlite_lj.lua
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_lj.lua ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_capi.lua
-                                     ${CMAKE_CURRENT_BINARY_DIR}
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_lj.lua
-)
-
-add_custom_target(sqlite_lj
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/sqlite_lj.lua
-            ${CMAKE_CURRENT_BINARY_DIR}/sqlite_capi.lua
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_lj.lua
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite_capi.lua)
-
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -68,33 +50,47 @@ else()
 
     target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/luajit/include/luajit-2.1")
 
-    add_dependencies(${PROJECT_NAME} ext_luajit sqlite_lj)
+    add_dependencies(${PROJECT_NAME} ext_luajit)
     target_link_libraries(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/libluajit-5.1.so")
 
     set(LUAJIT_BIN ${CMAKE_CURRENT_BINARY_DIR}/luajit/bin/luajit)
 
 endif()
 
-set(LUA_SCRIPT_GENERATOR_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/generate_lua_scripts.lua")
-set(LUA_SCRIPT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/lua_scripts.h")
+set(LUA_PATH "/usr/share/luajit-2.1.0-beta3/?.lua\;${CMAKE_CURRENT_BINARY_DIR}/luajit/share/luajit-2.1/?.lua\;\;")
 
-if (DEFINED ENV{LUAJIT_LIBRARY})
-    set(GEN_DEPS ${LUA_SCRIPT_GENERATOR_SCRIPT} ${LUA_SCRIPT_FILES})
-else()
-    set(GEN_DEPS ${LUA_SCRIPT_GENERATOR_SCRIPT} ${LUA_SCRIPT_FILES} ext_luajit)
-endif()
+set(BYTECODE_OBJECTS "")
+foreach(LUA_FILE ${LUA_SCRIPT_FILES})
 
-add_custom_command(
-    OUTPUT "${LUA_SCRIPT_HEADER_FILE}"
-    COMMAND ${CMAKE_COMMAND} -E env LUA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/?.lua ${LUAJIT_BIN} ${LUA_SCRIPT_GENERATOR_SCRIPT} ${LUA_SCRIPT_FILES} ${LUA_SCRIPT_HEADER_FILE}
-    DEPENDS ${GEN_DEPS} 
-    COMMENT "Generating Lua script header file"
-)
+    get_filename_component(FILENAME_WE ${LUA_FILE} NAME_WE)
+    set(OBJECT_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME_WE}.obj)
 
+    if(DEFINED ENV{LUAJIT_LIBRARY})
+        add_custom_command(
+            OUTPUT ${OBJECT_FILE}
+            COMMAND ${CMAKE_COMMAND} -E env LUA_PATH="${LUA_PATH}" 
+                    ${LUAJIT_BIN} -b ${CMAKE_CURRENT_SOURCE_DIR}/${LUA_FILE} ${OBJECT_FILE}
+            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${LUA_FILE}
+            COMMENT "Compiling ${LUA_FILE} to ${OBJECT_FILE} with system luajit"
+        )
+    else()
+        add_custom_command(
+            OUTPUT ${OBJECT_FILE}
+            COMMAND ${CMAKE_COMMAND} -E env LUA_PATH="${LUA_PATH}" 
+                    ${LUAJIT_BIN} -b ${CMAKE_CURRENT_SOURCE_DIR}/${LUA_FILE} ${OBJECT_FILE}
+            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${LUA_FILE} ext_luajit
+            COMMENT "Compiling ${LUA_FILE} to ${OBJECT_FILE} with luajit from git"
+        )
+    endif()
 
-add_custom_target(generate_lua_scripts DEPENDS "${LUA_SCRIPT_HEADER_FILE}")
-add_dependencies(${PROJECT_NAME} generate_lua_scripts)
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+    list(APPEND BYTECODE_OBJECTS ${OBJECT_FILE})
+endforeach()
+
+add_custom_target(generate_bytecode_objects ALL DEPENDS ${BYTECODE_OBJECTS})
+add_dependencies(${PROJECT_NAME} generate_bytecode_objects)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${BYTECODE_OBJECTS})
+set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-Wl,--strip-all")
 
 
 set(TEST_NAMES
