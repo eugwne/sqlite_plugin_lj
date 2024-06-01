@@ -1,0 +1,74 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
+name: CMake on a single platform
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    env:
+      LUAJIT_LIBRARY: /usr/lib/x86_64-linux-gnu/libluajit-5.1.so
+      LUAJIT_INCLUDE_DIR: /usr/include/luajit-2.1
+      LUAJIT_BIN: /usr/bin/luajit
+    
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install libs
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install sqlite3 -y
+        sudo apt-get install cmake -y
+        sudo apt-get install gcc -y
+        sudo apt-get install luajit -y
+        sudo apt-get install libluajit-5.1-dev -y
+        
+
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      # Execute tests defined by the CMake configuration.
+      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+      run: ctest -C ${{env.BUILD_TYPE}} -V
+
+    - uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_src
+        path: |
+          ${{github.workspace}}/expected
+          ${{github.workspace}}/sql
+          ${{github.workspace}}/src
+          ${{github.workspace}}/LICENSE
+          ${{github.workspace}}/CMakeLists.txt
+          ${{github.workspace}}/DockerAlpine
+          ${{github.workspace}}/DockerUbuntu
+          ${{github.workspace}}/README.md
+          ${{github.workspace}}/test.sh
+
+    - uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_lib
+        path: ${{github.workspace}}/build/libsqlite_plugin_lj.so
+          
+
