@@ -1,6 +1,6 @@
 select load_extension('./libsqlite_plugin_lj');
 select('-------------');
-select make_stored_fn('L', '
+select make_fn('L', '
 return function (code_text, ...)
     local fn_env = {}
     setmetatable(fn_env, { __index = _G })

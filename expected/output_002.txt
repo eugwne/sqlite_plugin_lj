@@ -5,11 +5,13 @@
 
 14
 
+echo [17LL]
 15
 
 Create failed [echo1]
 unable to delete/modify user-function due to active statements
 
+echo [21LL]
 
 -1377409902473561267|-1377409902473561267
 DROP FUNCTION error: unable to delete/modify user-function due to active statements

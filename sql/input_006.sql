@@ -1,11 +1,12 @@
 select load_extension('./libsqlite_plugin_lj');
-select use_function_storage('tbl_lua_code_storage');
+
 select('-------------');
 
 
 select L('
-    run_sql("DROP TABLE IF EXISTS TEMP.table_a")
-    make_vtable("table_a",
+    local sqlite = require("sqlite_lj")
+    sqlite.run_sql("DROP TABLE IF EXISTS TEMP.table_a")
+    sqlite.make_vtable("table_a",
         {
             columns = {"a", "b", "c"}, 
             rows = {{1,2}}
