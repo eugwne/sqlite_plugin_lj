@@ -1,7 +1,7 @@
 local plugin = {}
 
 plugin._DESCRIPTION = "LuaJIT FFI sqlite language extension"
-plugin._VERSION = "sqlite lj 0.1"
+plugin._VERSION = "sqlite lj 0.2"
 
 local ffi = require('ffi')
 
@@ -104,10 +104,6 @@ local function_refs = Storage()
 local agg_function_refs = Storage()
 local vfunc_data = Storage()
 local vfunc_cur = Storage()
-
-local stored_fn
-
-local restore_functions_flag = false
 
 
 local wrap_csafe
@@ -305,14 +301,11 @@ local return_const = function(context, argc, argv)
     sqlite_api.result_int64(context, saved_constant)
 end
 
-local make_stored_int = function(name, value)
+local make_int = function(name, value)
     local ok = api_create_function_v2(name, 0, bor(SQLITE.DETERMINISTIC, SQLITE.INNOCUOUS) , ffi.cast('void*', value), return_const, nil, nil, nil)
-    if ok then
-        stored_fn.store_function(name, nil, nil, value, 0, "create_constant")
-    end
     return ok
 end
-public_env.make_stored_int = make_stored_int
+public_env.make_int = make_int
 
 local exec_lua = function (code_text, ...)
     local fn_env = {arg = {...}}
@@ -426,7 +419,7 @@ local create_function_chk = function(name, code_text, argc, wrapper_function)
     return fn
 end
 
-local make_stored_fn = function(name, code_text, argc)
+local make_fn = function(name, code_text, argc)
     argc = argc or -1
 
     local fn_env = {}
@@ -453,22 +446,23 @@ local make_stored_fn = function(name, code_text, argc)
         local msg = 'Create failed ['.. name .. ']\n' .. tostring(err)
         return msg
     end
-    stored_fn.store_function(name, nil, code_text, nil, argc, "make_stored_fn")
 end
+public_env.make_fn = make_fn
 
-local make_stored_chk = function (name, chunk_text, argc)
+local make_chk = function (name, chunk_text, argc)
     local status, err = xpcall(create_function_chk, error_xcall, name, chunk_text, 1,  caller_chk)
     if not status then
         local msg = 'Create failed ['.. name .. ']\n' .. tostring(err.message) .. '\n' .. err.detail
         return msg
     end
-    stored_fn.store_function(name, nil, chunk_text, nil, argc, "make_stored_chk")
 end
+public_env.make_chk = make_chk
 
 local make_function_agg_chk = function(fname, finit, fstep, ffinal, fargc)
     fargc = fargc or -1
     return create_function_agg_chk(tostring(fname), tostring(finit), tostring(fstep), tostring(ffinal), fargc)
 end
+public_env.make_function_agg_chk = make_function_agg_chk
 
 local make_function_agg = function(name, code_text, argc)
     argc = argc or -1
@@ -491,6 +485,7 @@ local make_function_agg = function(name, code_text, argc)
         return msg
     end
 end
+public_env.make_function_agg = make_function_agg
 
 -- sqlite3_context *context, int argc, sqlite3_value **argv
 local agg_cb_coro = function(context, argc, argv)
@@ -750,86 +745,15 @@ local urows = function (sql, params)
 end
 public_env.urows = urows
 
-local StoredFunctionControl = function ()
-    local initialized = false
-    local table_storage
-
-    local create_table
-    local drop_function
-    local query_functions
-    local store_function
-
-    local restore_functions = function ()
-        if not table_storage then return end
-        run_sql (create_table)
-        restore_functions_flag = true
-    
-        local rows = fetch_all (query_functions)
-        for i, row in ipairs(rows)  do
-            if row.creator == 'make_stored_fn' then
-                make_stored_fn(row.name, row.body, row.argc)
-            elseif row.creator == 'create_constant' then
-                make_stored_int(row.name, row.ret)
-            elseif row.creator == 'make_stored_chk' then
-                make_stored_chk(row.name, row.body, row.argc)
-            end
-        end
-        restore_functions_flag = false
-    
+local drop_function = function(name, argc)
+    local status, err, errcode = api_create_function_v2(name, argc, 0, nil , nil, nil, nil, nil)
+    if not status then
+        --TODO fix it 
+        return "DROP FUNCTION error: ".. err
     end
-
-    local self = {}
-    self.use_function_storage = function (table_name)
-        if initialized then 
-            print("use_function_storage already called")
-            return
-        end
-
-        initialized = true
-        table_storage = table_name
-        create_table = string.format("CREATE TABLE IF NOT EXISTS %s(name, head, body, ret, argc, creator)", table_storage)
-        drop_function = string.format("DELETE FROM %s WHERE lower(name) = lower(?) AND argc = ?", table_storage)
-        query_functions = string.format("SELECT name, head, body, ret, argc, creator FROM %s", table_storage)
-        store_function = string.format("INSERT INTO %s(name, head, body, ret, argc, creator) VALUES(?,?,?,?,?,?)", table_storage)
-
-        restore_functions()
-    end
-
-    self.drop_function = function(name, argc)
-        if not initialized then 
-            print("drop_function: use_function_storage not set")
-            return
-        end
-        if not table_storage then return end
-
-        argc = argc or -1
-    
-        fetch_all (drop_function, {name, argc})
-    
-        local status, err, errcode = api_create_function_v2(name, argc, 0, nil , nil, nil, nil, nil)
-        if not status then
-            --TODO fix it 
-            return "DROP FUNCTION error: ".. err
-        end
-        return ""
-    end
-
-
-    self.store_function = function (name, head, body, ret, argc, creator)
-        if not initialized then 
-            print("store_function: use_function_storage not set")
-            return
-        end
-        if not table_storage then return end
-        if not restore_functions_flag then
-            fetch_all (store_function, {name, head, body, ret, argc, creator})
-        end
-    end
-
-    return self
-    
+    return ""
 end
-
+public_env.drop_function = drop_function
 
 --local sqlite3_module_test = ffi.cast('sqlite3_module *', api.malloc(ffi.sizeof(sqlite3_module_t)))--sqlite3_module_t{}
 local lua_vtable_module = sqlite3_module_t{
@@ -1161,8 +1085,12 @@ local create_vtable_functions = function()
 end
 
 local copy_to_global = function (map)
+    _G.NULL = map.NULL
+end
+
+local copy_to_plugin = function (map)
     for k,v in pairs(map) do
-        _G[k] = v
+        plugin[k] = v
     end
 end
 
@@ -1170,25 +1098,19 @@ end
 plugin.extension_init = function ( ctx )
     copy_to_global(public_env)
 
+    copy_to_plugin(public_env)
+
+    plugin.extension_init = nil
+    plugin.extension_deinit = nil
+
     local plugin_init_data = ffi.cast('LJFunctionData *', ctx)
 
     sqlite_db = plugin_init_data.db
     sqlite_api = plugin_init_data.api
 
-    stored_fn = StoredFunctionControl()
-
     create_vtable_functions()
     create_function("L", exec_lua, -1)
 
-    -- all stored functions will be called, do not run untrusted code/dbfile !!!
-    create_function("use_function_storage", stored_fn.use_function_storage, -1)
-    create_function("drop_function", stored_fn.drop_function, -1)
-
-    create_function("make_stored_int", make_stored_int, 2)
-    create_function("make_stored_chk", make_stored_chk, -1)
-    create_function("make_stored_fn", make_stored_fn, -1)
-    create_function("make_stored_agg3", make_function_agg_chk, -1)
-    create_function("make_stored_aggc", make_function_agg, -1)
 end
 
 plugin.extension_deinit = function ()

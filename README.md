@@ -16,31 +16,40 @@ A C library to extend SQLite's functionality with LuaJIT. This plugin focuses on
   Plugin runs unrestricted LuaJIT VM inside of sqlite plugin. 
 - Custom SQL functions
 
-**use_function_storage**  - one time called function. It sets table as a container for lua created functions. If table with the name exists, it reads the table contents and runs internal create functions. Do not run it on unknown sources, it has no sandboxing !!!  
-User created functions will be stored there
-```sql
-select use_function_storage('tbl_name');
-```
-Call this function with no args to ignore store/restore function logic
+The plugin makes available only L function, which can add more functions.
 
+Execute L with arguments
 ```sql
-select use_function_storage();
+cmd> sqlite3
+sqlite> select load_extension('./libsqlite_plugin_lj');
+sqlite> --select L('return arg[1] ', arg1, ...);
+sqlite> select L('return arg[1] ', 1);
+1
+sqlite> select L('return arg[1] + arg[2] ', 1, 3);
+4
 ```
 
-Execute lua with arguments
+Api functions stored in sqlite_lj module, make them available in lua global and add some functions to sqlite:
 ```sql
-select L('return arg[1] ', arg1, ...)
+sqlite> select L('
+    _G.sqlite = require("sqlite_lj")
+    sqlite.create_function("make_fn", sqlite.make_fn, -1)
+    sqlite.create_function("make_int", sqlite.make_int, 2)
+    sqlite.create_function("make_chk", sqlite.make_chk, 3)
+    sqlite.create_function("make_stored_agg3", sqlite.make_function_agg_chk, -1)
+    sqlite.create_function("make_stored_aggc", sqlite.make_function_agg, -1)
+');
 ```
 
 Create sqlite callable function:
 ```sql
-select make_stored_fn('inc', 'return function(a) return a + 1 end', 1 /*expected arguments count*/);
+select make_fn('inc', 'return function(a) return a + 1 end', 1 /*expected arguments count*/);
 select inc(14);
 ```
 
 Create sqlite callable function from lua chunk:
 ```sql
-select make_stored_chk('inc_c', 'return arg[1] + 1', 1);
+select make_chk('inc_c', 'return arg[1] + 1', 1);
 select inc_c(14);
 ```
 
@@ -92,8 +101,9 @@ SELECT * , typeof(value)
 FROM L('
     local tbl = {123, 324, math.pi, NULL, "test", -1377409902473561268LL}
     return list_iterator(tbl)
- ')
+ ');
 ```
+
 
 10 Fields virtual table (fields named r0, r1 ...):
 ```sql
@@ -104,14 +114,14 @@ FROM L10('
         {124, 324, math.pi, NULL, "test", -1377409902473561268LL}
     }
     return list_iterator(tbl)
- ')
+ ');
 ```
 
 Custom virtual table:
 ```sql
 select L('
-    run_sql("DROP TABLE IF EXISTS TEMP.table_a")
-    make_vtable("table_a",
+    sqlite.run_sql("DROP TABLE IF EXISTS TEMP.table_a")
+    sqlite.make_vtable("table_a",
         {
             columns = {"a", "b", "c"}, 
             rows = {{1,2}}

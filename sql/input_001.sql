@@ -1,6 +1,12 @@
 select load_extension('./libsqlite_plugin_lj');
-select use_function_storage('tbl_lua_code_storage');
-select make_stored_fn('Lua', '
+
+select L('
+    _G.sqlite = require("sqlite_lj")
+    sqlite.create_function("make_fn", sqlite.make_fn, -1)
+    sqlite.create_function("make_int", sqlite.make_int, 2)
+    sqlite.create_function("make_chk", sqlite.make_chk, 3)
+');
+select make_fn('Lua', '
 return function (code_text, ...)
     local name = "temp_fn"
     local fn_env = {}
@@ -15,26 +21,27 @@ return function (code_text, ...)
     return fn()
 end
 ');
-select L('
+select Lua('
     local increment_w = function(a)
         return a + 1
     end
-    create_function("inc", increment_w, 1)
+    sqlite.create_function("inc", increment_w, 1)
 ');
 
-select make_stored_chk('inc_c', 'return arg[1] + 1', 1);
-select make_stored_chk('error_inc_c', 'return arg[1][1] + 1', 1);
+select make_chk('inc_c', 'return arg[1] + 1', 1);
+select make_chk('error_inc_c', 'return arg[1][1] + 1', 1);
 
 select inc(12);
-select make_stored_int('const_x', 9999);
+
+select make_int('const_x', 9999);
 select const_x();
 select L('
-make_stored_int("const_x2", 10000)
+sqlite.make_int("const_x2", 10000)
 ');
 select const_x2();
 
 
-select L('run_sql[[
+select L('sqlite.run_sql[[
           CREATE TABLE numbers(num1,num2);
           INSERT INTO numbers VALUES(1,11);
           INSERT INTO numbers VALUES(2,22);
@@ -65,13 +72,13 @@ end
 ');
 
 select L('
-for a in rows("SELECT * FROM numbers") do pprint_table(a) end
+for a in sqlite.rows("SELECT * FROM numbers") do pprint_table(a) end
 ');
 
 select L('
-for a in nrows("SELECT * FROM numbers") do pprint_table(a) end
+for a in sqlite.nrows("SELECT * FROM numbers") do pprint_table(a) end
 ');
 
 select L('
-for num1, num2 in urows("SELECT * FROM numbers") do print(num1,num2) end
+for num1, num2 in sqlite.urows("SELECT * FROM numbers") do print(num1,num2) end
 ');
