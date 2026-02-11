@@ -1,0 +1,5 @@
+PASS register inf functions
+PASS return +inf stays float
+PASS return -inf stays float
+PASS bind +inf stays float
+PASS bind -inf stays float

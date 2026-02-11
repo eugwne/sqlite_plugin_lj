@@ -1,0 +1,13 @@
+PASS bind sqlite.int_t
+PASS bind sqlite.int64_t
+PASS bind sqlite.uint64_t
+PASS bind sqlite.double_t
+PASS bind NULL
+PASS bind number int
+PASS bind number real
+PASS bind string
+PASS bind boolean
+PASS bind blob empty
+PASS bind blob bytes
+PASS bind invalid table
+PASS bind invalid function

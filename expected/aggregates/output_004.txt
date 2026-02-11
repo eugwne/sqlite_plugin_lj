@@ -1,0 +1,15 @@
+
+-------------
+
+
+21|21
+
+21|21
+
+PASS: sum_error correctly reported indexing error
+PASS: L table reports missing function error
+
+
+ | [value] 8LL
+ | [value] 10LL
+table

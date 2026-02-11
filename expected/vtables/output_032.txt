@@ -1,0 +1,5 @@
+
+
+--- re-entry from L into make_vtable ---
+PASS L into make_vtable blocked
+PASS L into L blocked

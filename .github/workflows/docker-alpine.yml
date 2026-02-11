@@ -1,0 +1,27 @@
+name: Docker Alpine Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-docker-alpine:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build DockerAlpine binaries target
+      run: |
+        rm -rf lib
+        mkdir -p lib
+        docker build --output=lib --target=binaries -f DockerAlpine .
+        test -f lib/libsqlite_plugin_lj.so
+
+    - if: ${{ github.ref == 'refs/heads/main' }}
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_lib_alpine_docker
+        path: lib/libsqlite_plugin_lj.so

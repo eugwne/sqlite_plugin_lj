@@ -1,0 +1,2 @@
+
+[string "temp_fn"]:3: api_bind_any: unsupported type table value table

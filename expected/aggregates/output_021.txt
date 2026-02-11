@@ -1,0 +1,8 @@
+
+--- coroutine aggregate error propagation expected ---
+
+OK:init:query-failed
+
+OK:step:query-failed
+
+OK:final:query-failed

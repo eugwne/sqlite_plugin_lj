@@ -1,0 +1,7 @@
+
+PASS make_vtable TEMP works
+PASS repeated queries stable
+PASS drop and re-create
+PASS re-create different schema
+PASS non-TEMP xCreate succeeds (query works)
+PASS make_vtable works after xCreate test

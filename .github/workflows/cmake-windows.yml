@@ -1,0 +1,94 @@
+name: CMake on Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+  VCPKG_ROOT: C:\vcpkg
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Ensure Python is available
+      shell: cmd
+      run: |
+        where python >nul 2>nul && (python --version && exit /b 0)
+        where py >nul 2>nul && (py -3 --version && exit /b 0)
+        echo Python 3 is required on the runner but was not found in PATH.
+        exit /b 1
+
+    - name: Install SQLite headers with vcpkg
+      shell: cmd
+      run: |
+        if not exist "%VCPKG_ROOT%" git clone https://github.com/microsoft/vcpkg "%VCPKG_ROOT%"
+        call "%VCPKG_ROOT%\bootstrap-vcpkg.bat"
+        "%VCPKG_ROOT%\vcpkg.exe" install sqlite3:x64-windows
+
+    - name: Install sqlite3 CLI
+      shell: cmd
+      run: |
+        set "SQLITE_URL=https://sqlite.org/2026/sqlite-tools-win-x64-3510200.zip"
+        set "SQLITE_ZIP=%RUNNER_TEMP%\sqlite-tools.zip"
+        set "SQLITE_DIR=%RUNNER_TEMP%\sqlite-tools"
+        if not exist "%SQLITE_DIR%" mkdir "%SQLITE_DIR%"
+        curl -L "%SQLITE_URL%" -o "%SQLITE_ZIP%"
+        tar -xf "%SQLITE_ZIP%" -C "%SQLITE_DIR%"
+        set "SQLITE_EXE_DIR="
+        for /r "%SQLITE_DIR%" %%F in (sqlite3.exe) do (
+          set "SQLITE_EXE_DIR=%%~dpF"
+          goto :found_sqlite
+        )
+        echo sqlite3.exe not found after extracting sqlite-tools archive
+        exit /b 1
+        :found_sqlite
+        echo %SQLITE_EXE_DIR%>>"%GITHUB_PATH%"
+        "%SQLITE_EXE_DIR%sqlite3.exe" --version
+
+    - name: Configure CMake (MSVC)
+      shell: cmd
+      run: >
+        cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
+        -DVCPKG_TARGET_TRIPLET=x64-windows
+
+    - name: Build
+      shell: cmd
+      run: cmake --build build --config %BUILD_TYPE%
+
+    - name: Test
+      shell: cmd
+      run: ctest --test-dir build -C %BUILD_TYPE% -V
+
+    - name: Upload source artifact
+      if: ${{ github.ref == 'refs/heads/main' }}
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_src_windows
+        path: |
+          ${{ github.workspace }}/expected
+          ${{ github.workspace }}/sql
+          ${{ github.workspace }}/src
+          ${{ github.workspace }}/LICENSE
+          ${{ github.workspace }}/CMakeLists.txt
+          ${{ github.workspace }}/DockerAlpine
+          ${{ github.workspace }}/DockerUbuntu
+          ${{ github.workspace }}/README.md
+          ${{ github.workspace }}/test.py
+
+    - name: Upload windows build artifacts
+      if: ${{ github.ref == 'refs/heads/main' }}
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_windows
+        path: |
+          ${{ github.workspace }}/build/Release/*sqlite_plugin_lj*.dll
+          ${{ github.workspace }}/build/Release/*sqlite_plugin_lj*.lib
+          ${{ github.workspace }}/build/libsqlite_plugin_lj.dll

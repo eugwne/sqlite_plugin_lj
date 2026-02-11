@@ -1,0 +1,11 @@
+
+PASS :param fetch_first
+PASS $param fetch_first
+PASS @param fetch_first
+PASS multi named params
+PASS fetch_all named
+PASS nrows named
+PASS urows named
+PASS positional fallback
+PASS NULL missing param
+PASS positional with table

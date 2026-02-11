@@ -1,0 +1,11 @@
+
+
+--- window on empty table ORDER BY ---
+--- window on empty table PARTITION BY ---
+--- window inverse on empty table ---
+--- window on single row ---
+42|1
+--- window inverse on single row ---
+42|42
+--- window partition on single row ---
+42|A|1

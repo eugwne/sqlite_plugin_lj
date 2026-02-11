@@ -1,0 +1,5 @@
+
+PASS baseline table created
+PASS re-create without drop errors
+PASS original table preserved after failed re-create
+PASS re-create works after explicit drop

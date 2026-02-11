@@ -1,0 +1,15 @@
+
+--- malformed lua handling ---
+PASS:L
+PASS:L10
+PASS:make_fn
+PASS:make_chk
+PASS:make_stored_agg3:init
+PASS:make_stored_agg3:step
+PASS:make_stored_agg3:final
+PASS:make_stored_aggc:code
+PASS:make_stored_win:init
+PASS:make_stored_win:step
+PASS:make_stored_win:final
+PASS:make_stored_win:inverse
+

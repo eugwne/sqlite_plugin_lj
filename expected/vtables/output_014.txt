@@ -1,0 +1,2 @@
+PASS: make_vtable quoted identifiers
+PASS: make_vtable rejects empty identifier

@@ -469,19 +469,81 @@ struct sqlite3_index_info {
 typedef struct lua_vtab {
   sqlite3_vtab base;  /* Base class - must be first */
   uint32_t index;           /* (this) Derived class data */
+  int32_t conn_slot;        /* Connection slot bound at xConnect time */
 } lua_vtab;
+
+typedef struct LJFunctionData_old {
+    sqlite3 * db;
+    char ** msg;
+    const sqlite3_api_routines *api;
+} LJFunctionData_old;
+
+typedef struct LJFunctionArgs {
+    sqlite3_context *ctx;
+    int argc;
+    sqlite3_value **argv;
+} LJFunctionArgs;
+
+typedef struct {
+    void (*fn_ptr)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*fn_step_ptr)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*fn_final_ptr)(sqlite3_context *ctx);
+    void (*fn_destroy_ptr)(void*);
+    int64_t udata; 
+    int allowed_nested;
+} FunctionContext;
 
 typedef struct LJFunctionData {
     sqlite3 * db;
     char ** msg;
     const sqlite3_api_routines *api;
+    void (*callback)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*cb_context_fn)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*cb_context_step_fn)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*cb_context_final_fn)(sqlite3_context *ctx);
+    void (*cb_context_destroy_fn)(void*);
+    void (*sqlite_return_int_cb)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*sqlite_return_text_cb)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+    void (*sqlite_free_cb)(void*);
+
+    // context functions
+    int (*pushFunctionContext)(FunctionContext ctx);
+    const FunctionContext* (*getFunctionContext)(int64_t index);
+    //shared bridge functions
+    int (*set_object)(const char* data, size_t len);
+    const char* (*get_object)(int id, size_t* len);
+
+    int call_depth;
+    int is_vtable_vm;
+    int conn_slot;
+    // lua write
+    void (*caller_fn)(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+
+    // vtable callbacks - Lua implementations (set by Lua)
+    int (*vtab_xOpen_lua)(sqlite3_vtab*, sqlite3_vtab_cursor**);
+    int (*vtab_xClose_lua)(sqlite3_vtab_cursor*);
+    int (*vtab_xFilter_lua)(sqlite3_vtab_cursor*, int, const char*, int, sqlite3_value**);
+    int (*vtab_xNext_lua)(sqlite3_vtab_cursor*);
+    int (*vtab_xEof_lua)(sqlite3_vtab_cursor*);
+    int (*vtab_xColumn_lua)(sqlite3_vtab_cursor*, sqlite3_context*, int);
+    int (*vtab_xRowid_lua)(sqlite3_vtab_cursor*, sqlite_int64*);
+    // vtable callbacks - C wrappers (provided by C, used by Lua module)
+    int (*cb_vtab_xOpen)(sqlite3_vtab*, sqlite3_vtab_cursor**);
+    int (*cb_vtab_xClose)(sqlite3_vtab_cursor*);
+    int (*cb_vtab_xFilter)(sqlite3_vtab_cursor*, int, const char*, int, sqlite3_value**);
+    int (*cb_vtab_xNext)(sqlite3_vtab_cursor*);
+    int (*cb_vtab_xEof)(sqlite3_vtab_cursor*);
+    int (*cb_vtab_xColumn)(sqlite3_vtab_cursor*, sqlite3_context*, int);
+    int (*cb_vtab_xRowid)(sqlite3_vtab_cursor*, sqlite_int64*);
 } LJFunctionData;
 ]]
 
 local defines = {
     SQLITE_UTF8 = 1,
     SQLITE_OK = 0,
+    SQLITE_ERROR = 1,
     SQLITE_NOMEM = 7, --A malloc() failed
+    SQLITE_MISUSE = 21,
 
     SQLITE_DETERMINISTIC  = 0x000000800,
     SQLITE_DIRECTONLY     = 0x000080000,
@@ -500,7 +562,8 @@ local defines = {
     SQLITE_NULL    = 5,
     SQLITE_TEXT    = 3,
 
-    SQLITE_VTAB_INNOCUOUS         = 2
+    SQLITE_VTAB_INNOCUOUS         = 2,
+    SQLITE_INDEX_CONSTRAINT_EQ    = 2
 }
 
 local SQLITE = {}
