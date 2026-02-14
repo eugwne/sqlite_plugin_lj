@@ -1,0 +1,1 @@
+PASS: shared object count ceiling enforced

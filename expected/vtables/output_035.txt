@@ -1,0 +1,6 @@
+
+PASS L10 baseline no join
+PASS L10 JOIN regular table
+PASS L JOIN regular table
+PASS L10 LEFT JOIN
+PASS L10 IN subquery

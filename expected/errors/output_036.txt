@@ -1,0 +1,14 @@
+
+
+
+PASS abandon iterator returns correct value
+
+PASS repeated abandon stable
+
+PASS error after partial iteration propagates
+PASS db usable after error cleanup
+
+
+PASS nested functions with cleanup
+PASS subsequent queries not corrupted
+

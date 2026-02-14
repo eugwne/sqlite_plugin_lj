@@ -1,0 +1,56 @@
+name: CMake on macOS
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Ensure Node.js for JS-based actions
+      run: |
+        if ! command -v node >/dev/null 2>&1; then
+          brew update
+          brew install node
+        fi
+        node --version
+
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install cmake sqlite luajit python
+
+    - name: Configure environment
+      run: |
+        SQLITE_PREFIX="$(brew --prefix sqlite)"
+        LUAJIT_PREFIX="$(brew --prefix luajit)"
+        echo "SQLITE3_INCLUDE_DIR=${SQLITE_PREFIX}/include" >> "$GITHUB_ENV"
+        echo "SQLITE3_BIN=${SQLITE_PREFIX}/bin/sqlite3" >> "$GITHUB_ENV"
+        echo "LUAJIT_INCLUDE_DIR=${LUAJIT_PREFIX}/include/luajit-2.1" >> "$GITHUB_ENV"
+        echo "LUAJIT_LIBRARY=${LUAJIT_PREFIX}/lib/libluajit-5.1.dylib" >> "$GITHUB_ENV"
+        echo "LUAJIT_BIN=${LUAJIT_PREFIX}/bin/luajit" >> "$GITHUB_ENV"
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DSQLITE_PLUGIN_LJ_PORTABLE_RPATH=ON
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{env.BUILD_TYPE}} -V
+
+    - if: ${{ github.ref == 'refs/heads/main' }}
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_lib_macos
+        path: ${{github.workspace}}/build/libsqlite_plugin_lj.dylib

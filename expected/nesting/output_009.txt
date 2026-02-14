@@ -1,0 +1,14 @@
+
+-------------
+
+
+55LL
+55
+
+PASS: fib2 correctly rejected nested closure call
+
+
+PASS: sub4 correctly rejected nested closure call
+
+6
+6

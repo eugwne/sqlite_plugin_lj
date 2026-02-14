@@ -1,0 +1,27 @@
+name: Docker Ubuntu Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-docker-ubuntu:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build DockerUbuntu binaries target
+      run: |
+        rm -rf lib
+        mkdir -p lib
+        docker build --output=lib --target=binaries -f DockerUbuntu .
+        test -f lib/libsqlite_plugin_lj.so
+
+    - if: ${{ github.ref == 'refs/heads/main' }}
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: sqlite_plugin_lj_lib_ubuntu_docker
+        path: lib/libsqlite_plugin_lj.so

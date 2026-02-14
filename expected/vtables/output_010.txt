@@ -1,0 +1,16 @@
+count(*)
+--------
+0       
+value  typeof(value)
+-----  -------------
+1      integer      
+2      integer      
+       null         
+3      integer      
+value  typeof(value)
+-----  -------------
+6      integer      
+       null         
+7      integer      
+8      integer      
+

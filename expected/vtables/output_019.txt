@@ -1,0 +1,7 @@
+PASS rows nil means empty table
+PASS rows empty means empty table
+PASS rows table-empty-row gives null row
+PASS duplicate columns
+PASS rows must be table
+PASS extra row values ignored
+PASS garbage rows skipped

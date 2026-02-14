@@ -1,0 +1,2 @@
+
+PASS: fetch_first bind error triggered

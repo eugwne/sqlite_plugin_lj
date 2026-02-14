@@ -1,0 +1,1 @@
+PASS: shared object size ceiling enforced
